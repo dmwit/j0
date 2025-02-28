@@ -122,8 +122,8 @@ instance N8Encode a => N8Encode [a] where n8Encode = foldMap n8Encode
 
 instance N8Encode UTCTime where
 	n8Encode (UTCTime (YearMonthDay y mo d) hms) = foldMap (n8Encode @Word8 . bcd) [fromInteger (y - 2000), mo, d, h, mi, s] where
-		(s, mh) = round hms `quotRem` 60
-		(mi, h) = mh `quotRem` 60
+		(mh, s) = round hms `quotRem` 60
+		(h, mi) = mh `quotRem` 60
 		bcd n = let (q, r) = n `quotRem` 10 in fromIntegral (shiftL q 4 .|. r)
 
 instance N8Encode CalibrationQuery where
