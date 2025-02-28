@@ -1,0 +1,24 @@
+cabal-version:      3.0
+name:               j0
+version:            0.1.0.0
+synopsis:           a Haskell library for connecting to the Krikzz Everdrive N8 Pro based on edlink
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Daniel Wagner
+maintainer:         me@dmwit.com
+copyright:          2025 Daniel Wagner
+category:           Hardware
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+-- extra-source-files:
+
+library
+    ghc-options:        -Wall -Wno-tabs
+    exposed-modules:    System.Hardware.N8Pro
+    other-modules:      System.Hardware.N8Pro.IncompletePatterns, System.Hardware.N8Pro.Types
+    build-depends:      base ^>=4.19.0.0, bytestring ^>=0.12, time ^>=1.12
+    hs-source-dirs:     lib
+    default-language:   Haskell2010
+    default-extensions: BlockArguments, DeriveFunctor, GADTs, LambdaCase, StandaloneDeriving, TypeApplications
+    other-extensions:   OverloadedStrings
