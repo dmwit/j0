@@ -25,9 +25,9 @@ openPort fp = do
 hCommand :: Handle -> Command a -> IO (Either (CommandError a) a)
 hCommand h cmd = do
 	BS.hPut h (fixed pkt)
-	hPutVariable h (variable pkt) >>= \case
-		Just n -> transmissionError n
-		Nothing -> first parseError <$> hParse h (fromBytes cmd)
+	traverse (hPutVariable h) (variable pkt) >>= \case
+		Just (Just n) -> transmissionError n
+		_ -> first parseError <$> hParse h (fromBytes cmd)
 	where
 	pkt = toPacket cmd
 	cmdError dets = CommandError
@@ -52,7 +52,7 @@ toPacket = \case
 	GetTime -> getTimePkt
 	SetTime t -> extendPacket setTimePkt t
 	ReadFlash range -> extendPacket readFlashPkt range
-	WriteFlash addr bs -> (extendPacket writeFlashPkt addr) { variable = bs }
+	WriteFlash addr bs -> (extendPacket writeFlashPkt addr) { variable = Just bs }
 	ReadMemory range -> extendPacket readMemoryPkt (range, 0 :: Word8)
 	SetMemory range w -> extendPacket setMemoryPkt (range, [w, 0])
 	TestMemory range w -> extendPacket testMemoryPkt (range, [w, 0])
@@ -68,7 +68,7 @@ toPacket = \case
 	SizeDirectory -> sizeDirectoryPkt
 	OpenFile mode path -> extendPacket openFilePkt (mode, path)
 	ReadFile sz -> extendPacket readFilePkt sz
-	WriteFile bs -> writeFilePkt { variable = bs }
+	WriteFile bs -> writeFilePkt { variable = Just bs }
 	CloseFile -> closeFilePkt
 	SetFilePointer addr -> extendPacket setFilePointerPkt addr
 	InfoFile path -> extendPacket infoFilePkt path
@@ -144,3 +144,9 @@ extendedResetPkt = extendPacket resetPkt (0 :: Word8)
 
 u32Bytes :: Word32 -> ByteString
 u32Bytes = BS.pack . take 4 . map fromIntegral . iterate (`shiftR` 8)
+
+showParser :: Show a => Parser a -> String
+showParser = \case
+	Yield a -> "Yield " ++ show a
+	Failure err -> "Failure " ++ show err
+	Receive n _ -> "Receive " ++ show n ++ " k"

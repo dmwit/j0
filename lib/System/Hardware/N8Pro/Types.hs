@@ -104,7 +104,7 @@ deriving instance Eq (Command a)
 deriving instance Ord (Command a)
 deriving instance Show (Command a)
 
-data Packet = Packet { fixed :: ByteString, variable :: ByteString }
+data Packet = Packet { fixed :: ByteString, variable :: Maybe ByteString }
 	deriving (Eq, Ord, Read, Show)
 
 data Parser a = Yield a | Failure String | Receive Int (ByteString -> Parser a)

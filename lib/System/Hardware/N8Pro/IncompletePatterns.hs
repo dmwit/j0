@@ -140,5 +140,5 @@ commandHeader w = BS.pack [43, 212, w, complement w]
 commandPacket :: Word8 -> Packet
 commandPacket w = Packet
 	{ fixed = commandHeader w
-	, variable = BS.empty
+	, variable = Nothing
 	}
