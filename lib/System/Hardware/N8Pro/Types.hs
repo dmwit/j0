@@ -14,11 +14,13 @@ import Data.Word
 import Data.Time.Clock
 import System.Exit
 
--- | There are many commands where the official implementation always issues a
--- 'GetStatus' afterwards. These commands are marked with \"S\".
+-- | There are many commands where edlink always issues a 'GetStatus'
+-- afterwards. These commands are marked with \"S\". The default renderings of
+-- some commands bake a 'GetStatus' in, so that even though edlink always
+-- issues a 'GetStatus' afterwards, you don't necessarily need to. These
+-- commands are marked with \"S-\".
 data Command a where
-	-- | Check if everything is still hunky-dory. edlink inserts this command
-	-- after a bunch of other commands.
+	-- | Check if everything is still hunky-dory.
 	GetStatus :: Command ExitCode
 	GetMode :: Command N8Mode
 	-- | Reset the N8 and enter 'Service' mode. You will have to reconnect
@@ -33,7 +35,7 @@ data Command a where
 	GetTime :: Command UTCTime
 	-- TODO: what's the real supported range?
 	-- | Only years in the range [2000, 2100) are supported. (This is checked,
-	-- and will result in a 'ParseError'.)
+	-- and out-of-bounds dates will result in a 'ParseError'.)
 	SetTime :: UTCTime -> Command ()
 	-- TODO: this seems to be very spotty; e.g. reading from addrFlashMenu
 	-- works up to size 12 and then it starts returning chunks smaller than
@@ -79,20 +81,14 @@ data Command a where
 	SetFilePointer :: Address -> Command ()
 	InfoFile :: ByteString -> Command FileInfo
 	ChecksumFile :: Length -> Command Checksum
-	-- note to self for when we start cataloguing/documenting which commands
-	-- should be followed by a GetStatus: this one already has the following
-	-- GetStatus baked in, so we can interpret error code 8 specially
-	-- | Returns whether the directory already existed.
+	-- | S- Returns whether the directory already existed.
 	MakeDirectory :: ByteString -> Command Bool
 	-- | S
 	DeleteFile :: ByteString -> Command ()
-	-- note to self for when we start cataloguing/documenting which commands
-	-- should be followed by a GetStatus: this one already has the following
-	-- GetStatus baked in, so we can interpret error code 0x88 specially
-	-- | Returns whether the "current core matches the recovery copy", whatever
-	-- that means. The official implementation always uses @'ReadFlash'
-	-- ('Range' addrFlashCore 4)@ (interpreted as little-endian) as the
-	-- checksum.
+	-- | S- Returns whether the "current core matches the recovery copy",
+	-- whatever that means. The official implementation always uses
+	-- @'ReadFlash' ('Range' addrFlashCore 4)@ (interpreted as little-endian)
+	-- as the checksum.
 	RecoverUSB :: Checksum -> Command Bool
 	-- | Reset the N8 and enter 'Application' mode. You will have to reconnect
 	-- after issuing this command (i.e. close and re-open the 'Handle'), and it
