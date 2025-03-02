@@ -72,7 +72,7 @@ data Command a where
 	-- | S See also 'modeDefault' etc.
 	OpenFile :: FileMode -> ByteString -> Command ()
 	-- | S
-	ReadFile :: Length -> Command ByteString
+	ReadFile :: LengthN8 -> Command ByteString
 	-- | S
 	WriteFile :: ByteString -> Command ()
 	-- | S
@@ -80,7 +80,7 @@ data Command a where
 	-- | S
 	SetFilePointer :: Address -> Command ()
 	InfoFile :: ByteString -> Command FileInfo
-	ChecksumFile :: Length -> Command Checksum
+	ChecksumFile :: LengthN8 -> Command Checksum
 	-- | S- Returns whether the directory already existed.
 	MakeDirectory :: ByteString -> Command Bool
 	-- | S
@@ -131,14 +131,12 @@ data CommandError a = CommandError
 	} deriving (Eq, Ord, Show)
 
 type Address = Word32
--- TODO: audit uses; sometimes lengths are sent as 32 bits and sometimes 16
-type Length = Word32
 type LengthN8 = Word32
 type LengthNES = Word16
 type Checksum = Word32 -- ^ CRC
 type FileMode = Word8
 
-data Range = Range { base :: Address , size :: Length }
+data Range = Range { base :: Address, size :: LengthN8 }
 	deriving (Eq, Ord, Read, Show)
 
 -- | 'Service' mode means the N8 is powered only via USB; I guess 'Application'

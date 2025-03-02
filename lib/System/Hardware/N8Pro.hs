@@ -50,7 +50,7 @@ toPacket = \case
 	Reset -> extendedResetPkt
 	GetVDC -> getVDCPkt
 	GetTime -> getTimePkt
-	SetTime t -> extendPacket setTimePkt t
+	SetTime t -> either (const emptyPkt) (extendPacket setTimePkt) (yearInRange t)
 	ReadFlash range -> extendPacket readFlashPkt range
 	WriteFlash addr bs -> (extendPacket writeFlashPkt addr) { variable = Just bs }
 	ReadMemory range -> extendPacket readMemoryPkt (range, 0 :: Word8)
@@ -62,20 +62,20 @@ toPacket = \case
 	UpdateExecution addr crc -> extendPacket updateExecutionPkt (addr, crc, 0 :: Word8)
 	InitDisk -> initDiskPkt
 	ReadDisk addr blocks -> extendPacket readDiskPkt (addr, fromIntegral blocks :: Word32)
-	OpenDirectory path -> extendPacket openDirectoryPkt path
+	OpenDirectory path -> extendPacket openDirectoryPkt (bsNES path)
 	ReadDirectory maxSize0 -> extendPacket readDirectoryPkt maxSize
 		where maxSize = max (maxSize0-1) maxSize0
-	LoadDirectory sorted path -> extendPacket loadDirectoryPkt (sorted, path)
+	LoadDirectory sorted path -> extendPacket loadDirectoryPkt (sorted, bsNES path)
 	SizeDirectory -> sizeDirectoryPkt
-	OpenFile mode path -> extendPacket openFilePkt (mode, path)
+	OpenFile mode path -> extendPacket openFilePkt (mode, bsNES path)
 	ReadFile sz -> extendPacket readFilePkt sz
 	WriteFile bs -> writeFilePkt { variable = Just bs }
 	CloseFile -> closeFilePkt
 	SetFilePointer addr -> extendPacket setFilePointerPkt addr
-	InfoFile path -> extendPacket infoFilePkt path
+	InfoFile path -> extendPacket infoFilePkt (bsNES path)
 	ChecksumFile sz -> extendPacket checksumFilePkt [sz, 0]
-	MakeDirectory bs -> extendPacket makeDirectoryPkt (bs, OnlyFixed getStatusPkt)
-	DeleteFile bs -> extendPacket deleteFilePkt bs
+	MakeDirectory bs -> extendPacket makeDirectoryPkt (bsNES bs, OnlyFixed getStatusPkt)
+	DeleteFile bs -> extendPacket deleteFilePkt (bsNES bs)
 	RecoverUSB crc -> extendPacket recoverUSBPkt (addrFlashCore, crc, OnlyFixed getStatusPkt)
 	RunApplication -> runApplicationPkt
 
@@ -108,14 +108,14 @@ hParse h = go [] where
 			bs <- BS.hGet h n
 			go (bs:chunks) (k bs)
 
+-- no instance for ByteString because there's too many options; instead
+-- consider bsN8, bsNES, or BS.byteString
 class N8Encode a where n8Encode :: a -> Builder
 newtype OnlyFixed = OnlyFixed Packet deriving (Eq, Ord, Read, Show)
 
 instance N8Encode Word8 where n8Encode = BS.word8
 instance N8Encode Word16 where n8Encode = BS.word16LE
 instance N8Encode Word32 where n8Encode = BS.word32LE
--- TODO: audit uses; sometimes lengths are sent as 32 bits and sometimes 16
-instance N8Encode ByteString where n8Encode = (n8Encode . lengthNES) <> BS.byteString
 instance N8Encode Builder where n8Encode = id
 instance N8Encode Range where n8Encode = (n8Encode . base) <> (n8Encode . size)
 instance N8Encode OnlyFixed where n8Encode (OnlyFixed pkt) = BS.byteString (fixed pkt)
@@ -146,6 +146,9 @@ extendPacket pkt a = pkt { fixed = BS.toStrict . BS.toLazyByteString $ BS.byteSt
 extendedResetPkt :: Packet
 extendedResetPkt = extendPacket resetPkt (0 :: Word8)
 
+emptyPkt :: Packet
+emptyPkt = Packet { fixed = mempty, variable = Nothing }
+
 lengthN8 :: ByteString -> LengthN8
 lengthN8 = fromIntegral . BS.length
 
@@ -163,3 +166,9 @@ showParser = \case
 	Yield a -> "Yield " ++ show a
 	Failure err -> "Failure " ++ show err
 	Receive n _ -> "Receive " ++ show n ++ " k"
+
+bsN8 :: ByteString -> Builder
+bsN8 = (n8Encode . lengthN8) <> BS.byteString
+
+bsNES :: ByteString -> Builder
+bsNES = (n8Encode . lengthNES) <> BS.byteString

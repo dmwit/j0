@@ -27,11 +27,7 @@ fromBytes = \case
 			{ utctDay = YearMonthDay (2000 + bcd 0) (bcd 1) (bcd 2)
 			, utctDayTime = ((bcd 3*60) + bcd 4*60) + bcd 5
 			}
-	SetTime t -> case utctDay t of
-		YearMonthDay y _ _
-			| y < 2000 -> Failure $ "Requested a pre-2000 year: " ++ show y
-			| y >= 2100 -> Failure $ "Requested a post-2100 year: " ++ show y
-			| otherwise -> ok
+	SetTime t -> either Failure (const ok) (yearInRange t)
 	ReadFlash range -> receiveWord32 (size range)
 	WriteFlash{} -> ok
 	ReadMemory range -> receiveWord32 (size range)
@@ -75,7 +71,7 @@ addrUndefined ,   addrPRG,   addrCHR,  addrSRAM, addrConfig,   addrSSR,  addrFIF
 [addrUndefined,   addrPRG,   addrCHR,  addrSRAM, addrConfig,   addrSSR,  addrFIFO, addrFlashMenu, addrFlashFPGA, addrFlashCore,        addrMenuPRG,        addrMenuCHR] =
  [   undefined, 0x0000000, 0x0800000, 0x1000000,  0x1800000, 0x1802000, 0x1810000,     0x0000000,     0x0040000,     0x0080000, addrPRG + 0x7e0000, addrCHR + 0x7e0000]
 
-szUndefined ,    szPRG,    szCHR,  szSRAM, szConfig, szSSR, szFIFO :: Length
+szUndefined ,    szPRG,    szCHR,  szSRAM, szConfig, szSSR, szFIFO :: LengthN8
 [szUndefined,    szPRG,    szCHR,  szSRAM, szConfig, szSSR, szFIFO] =
  [ undefined, 0x800000, 0x800000, 0x40000,     0x30, 0x100,    0x1]
 
@@ -143,3 +139,11 @@ commandPacket w = Packet
 	{ fixed = commandHeader w
 	, variable = Nothing
 	}
+
+-- TODO: is this really the right range?
+yearInRange :: UTCTime -> Either String UTCTime
+yearInRange t
+	| y < 2000 = Left $ "Invalid year " ++ show y ++ " (must be 2000 or later)"
+	| y >= 2100 = Left $ "Invalid year " ++ show y ++ " (must be before 2100)"
+	| otherwise = Right t
+	where YearMonthDay y _ _ = utctDay t
