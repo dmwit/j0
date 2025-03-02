@@ -35,6 +35,7 @@ fromBytes = \case
 	ReadFlash range -> receiveWord32 (size range)
 	WriteFlash{} -> ok
 	ReadMemory range -> receiveWord32 (size range)
+	WriteMemory{} -> ok
 	SetMemory{} -> ok
 	TestMemory{} -> Receive 1 \bs -> Yield (bs /= "\0")
 	ChecksumMemory{} -> u32Parser

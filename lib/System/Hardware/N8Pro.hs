@@ -54,6 +54,7 @@ toPacket = \case
 	ReadFlash range -> extendPacket readFlashPkt range
 	WriteFlash addr bs -> (extendPacket writeFlashPkt addr) { variable = Just bs }
 	ReadMemory range -> extendPacket readMemoryPkt (range, 0 :: Word8)
+	WriteMemory addr bs -> extendPacket writeMemoryPkt (addr, lengthN8 bs, 0 :: Word8, BS.byteString bs)
 	SetMemory range w -> extendPacket setMemoryPkt (range, [w, 0])
 	TestMemory range w -> extendPacket testMemoryPkt (range, [w, 0])
 	ChecksumMemory range -> extendPacket checksumMemoryPkt (range, 0 :: Word32, 0 :: Word8)
@@ -113,11 +114,14 @@ newtype OnlyFixed = OnlyFixed Packet deriving (Eq, Ord, Read, Show)
 instance N8Encode Word8 where n8Encode = BS.word8
 instance N8Encode Word16 where n8Encode = BS.word16LE
 instance N8Encode Word32 where n8Encode = BS.word32LE
-instance N8Encode ByteString where n8Encode = (n8Encode . (fromIntegral :: Int -> Word16) . BS.length) <> BS.byteString
+-- TODO: audit uses; sometimes lengths are sent as 32 bits and sometimes 16
+instance N8Encode ByteString where n8Encode = (n8Encode . lengthNES) <> BS.byteString
+instance N8Encode Builder where n8Encode = id
 instance N8Encode Range where n8Encode = (n8Encode . base) <> (n8Encode . size)
 instance N8Encode OnlyFixed where n8Encode (OnlyFixed pkt) = BS.byteString (fixed pkt)
 instance (N8Encode a, N8Encode b) => N8Encode (a, b) where n8Encode = (n8Encode . fst) <> (n8Encode . snd)
 instance (N8Encode a, N8Encode b, N8Encode c) => N8Encode (a, b, c) where n8Encode (a, b, c) = n8Encode a <> n8Encode b <> n8Encode c
+instance (N8Encode a, N8Encode b, N8Encode c, N8Encode d) => N8Encode (a, b, c, d) where n8Encode (a, b, c, d) = n8Encode a <> n8Encode b <> n8Encode c <> n8Encode d
 instance N8Encode a => N8Encode [a] where n8Encode = foldMap n8Encode
 
 instance N8Encode UTCTime where
@@ -141,6 +145,15 @@ extendPacket pkt a = pkt { fixed = BS.toStrict . BS.toLazyByteString $ BS.byteSt
 
 extendedResetPkt :: Packet
 extendedResetPkt = extendPacket resetPkt (0 :: Word8)
+
+lengthN8 :: ByteString -> LengthN8
+lengthN8 = fromIntegral . BS.length
+
+lengthNES :: ByteString -> LengthNES
+lengthNES bs
+	| len > fromIntegral (maxBound :: LengthNES) = error "something's gone wrong; we just tried to send/receive a chunk of data larger than the NES' address space to/from the NES"
+	| otherwise = fromIntegral len
+	where len = BS.length bs
 
 u32Bytes :: Word32 -> ByteString
 u32Bytes = BS.pack . take 4 . map fromIntegral . iterate (`shiftR` 8)

@@ -49,7 +49,7 @@ data Command a where
 	-- TODO: seems to always return 0 bytes??
 	ReadMemory :: Range -> Command ByteString
 	-- TODO: the rest of these are untested
-	-- TODO: WriteMemory :: Address -> ByteString -> Command ()
+	WriteMemory :: Address -> ByteString -> Command ()
 	-- | S
 	SetMemory :: Range -> Word8 -> Command ()
 	TestMemory :: Range -> Word8 -> Command Bool
@@ -131,7 +131,10 @@ data CommandError a = CommandError
 	} deriving (Eq, Ord, Show)
 
 type Address = Word32
+-- TODO: audit uses; sometimes lengths are sent as 32 bits and sometimes 16
 type Length = Word32
+type LengthN8 = Word32
+type LengthNES = Word16
 type Checksum = Word32 -- ^ CRC
 type FileMode = Word8
 
@@ -156,7 +159,7 @@ data CalibrationQuery
 	deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
 data FileInfo = FileInfo
-	{ fiSize :: Word32
+	{ fiSize :: LengthN8
 	, fiDate :: Word16
 	, fiTime :: Word16
 	, fiAttributes :: Word8
