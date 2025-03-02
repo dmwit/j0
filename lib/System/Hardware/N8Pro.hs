@@ -8,6 +8,7 @@ module System.Hardware.N8Pro (
 import System.Hardware.N8Pro.IncompletePatterns
 import System.Hardware.N8Pro.Types
 
+import Control.Concurrent
 import Data.Bifunctor
 import Data.Bits
 import Data.ByteString.Builder (Builder)
@@ -42,6 +43,17 @@ hCommand h cmd = do
 		{ errorDescription = err
 		, chunksReceived = chunks
 		}
+
+hCommandDbg :: Handle -> Command a -> IO (ByteString, Either (String, [ByteString], ByteString) (ByteString, a))
+hCommandDbg h cmd = do
+	BS.hPut h (fixed pkt)
+	traverse (hPutVariable h) (variable pkt) >>= \case
+		Just (Just _) -> BS.hGetNonBlocking h 4096 >> fail "variable packet debugging not yet supported, sorry"
+		_ -> do
+			threadDelay 10000
+			bs <- BS.hGetNonBlocking h 4096
+			pure (bs, hParseDbg bs (fromBytes cmd))
+	where pkt = toPacket cmd
 
 toPacket :: Command a -> Packet
 toPacket = \case
@@ -107,6 +119,15 @@ hParse h = go [] where
 		Receive n k -> do
 			bs <- BS.hGet h n
 			go (bs:chunks) (k bs)
+
+hParseDbg :: ByteString -> Parser a -> Either (String, [ByteString], ByteString) (ByteString, a)
+hParseDbg = go [] where
+	go chunks bs = \case
+		Yield a -> Right (bs, a)
+		Failure err -> Left (err, reverse chunks, bs)
+		Receive n k -> if BS.length bs < n
+			then Left ("wanted " ++ show n ++ " more bytes", reverse chunks, bs)
+			else go (BS.take n bs : chunks) (BS.drop n bs) (k (BS.take n bs))
 
 -- no instance for ByteString because there's too many options; instead
 -- consider bsN8, bsNES, or BS.byteString
